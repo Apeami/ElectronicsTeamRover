@@ -1,9 +1,8 @@
 import serial
 import time
 import sys
-#import yourMom #joe mama is so fat that we need her to work the communication method
 
-#your mom haha
+
 #These are the values that can be changed depending on the situation
 port = "/dev/cu.usbmodem14101" #this is the port that is used to access the arduino and will change
 
@@ -23,7 +22,7 @@ arrayToSend = [0,0,0,0,0]
 try:
     ser=serial.Serial(port,9600) #this is the setup of the serial connection
 except:
-    print("No serial port to be found. Maybe try using your mom's port. 笑笑")
+    print("No serial port to be found. Maybe try using your mom's port.")
     sys.exit(1)
 
 def setupCommunication():
@@ -43,7 +42,7 @@ def setWheel(speed, side):
     transmitWire()
 
 
-def setServo(angle, number): #Your mom has some thicc angles, be sure not to overwork her
+def setServo(angle, number):
     angle = angle - ANGLEMIN
     angle = angle / (ANGLEMAX-ANGLEMIN)
     angle = angle *127
@@ -62,7 +61,7 @@ def setOnState(state):
     transmitWire()
 
 def transmitWire():
-    array=arrayToSend #This is the array of data that we are sending to the arduino via your mom
+    array=arrayToSend #This is the array of data that we are sending to the arduino
     #array=[0,0,0,0,1]
     print(array)
     send=b''
@@ -71,10 +70,10 @@ def transmitWire():
         add = str.encode(chr(int(x)))
         send=send+add #we will change it into a string of bytes because python is not fun
     print(send)
-    ser.write(send) #send the string through yourmom's serial port.
+    ser.write(send)
 
 def closeCommunication():
-    ser.close() #it is important to close the communication channel (yourMom) at the end. Your mom might risk a stroke if worked too much because she is so fat
+    ser.close() #it is important to close the communication channel 
 
 def testFunction():
     #test function that can be written to to test the code
