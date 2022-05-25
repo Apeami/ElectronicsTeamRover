@@ -2,6 +2,6 @@
 Electronics files, Arduino code, Computer Communication code
 
 
-Team Memebers:
+Team Members:
 
 # Put your names here
