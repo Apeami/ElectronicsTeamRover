@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name FullCircuitDiagram-cache)(type Legacy)(uri ${KIPRJMOD}/FullCircuitDiagram-cache.lib)(options "")(descr ""))
+  (lib (name ComponentsAdditional)(type Legacy)(uri ${KIPRJMOD}/ComponentsAdditional.lib)(options "")(descr ""))
+)

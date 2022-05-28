@@ -1,0 +1,3 @@
+(fp_lib_table
+  (lib (name ElectronicsCircuit)(type KiCad)(uri ${KIPRJMOD}/ElectronicsCircuit.pretty)(options "")(descr ""))
+)

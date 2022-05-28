@@ -467,42 +467,4 @@ Wire Wire Line
 Connection ~ 5700 3800
 Wire Wire Line
 	5700 3800 6400 3800
-Wire Wire Line
-	8350 3150 8350 3850
-Wire Wire Line
-	8350 3850 9050 3850
-Wire Wire Line
-	9050 3850 9050 4300
-Wire Wire Line
-	9050 4300 9300 4300
-Connection ~ 8350 3150
-Wire Wire Line
-	9050 4300 9050 4800
-Wire Wire Line
-	9050 4800 9300 4800
-Connection ~ 9050 4300
-Wire Wire Line
-	9050 4800 9050 5350
-Wire Wire Line
-	9050 5350 9300 5350
-Connection ~ 9050 4800
-Wire Wire Line
-	9300 4200 9200 4200
-Wire Wire Line
-	9200 4200 9200 4700
-Wire Wire Line
-	9200 4700 9300 4700
-Wire Wire Line
-	9200 4700 9200 5250
-Wire Wire Line
-	9200 5250 9300 5250
-Connection ~ 9200 4700
-Wire Wire Line
-	9200 5250 9200 5550
-Wire Wire Line
-	9200 5550 5700 5550
-Wire Wire Line
-	5700 5550 5700 4800
-Connection ~ 9200 5250
-Connection ~ 5700 4800
 $EndSCHEMATC
