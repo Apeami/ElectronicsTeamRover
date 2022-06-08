@@ -1,3 +1,7 @@
+#include <RH_ASK.h>
+#include <SPI.h> // Not actually used but needed to compile
+
+
 RH_ASK driver(2000, A5, 4, 5); 
 
 uint8_t buf[RH_ASK_MAX_MESSAGE_LEN];

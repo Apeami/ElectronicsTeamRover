@@ -32,7 +32,6 @@ void recieveRadio(){
     for (int i = 0; i < buflen; i++) {
       rcv += (char)buf[i];
     }
-    Serial.println(rcv);
   }
 }
 
@@ -41,20 +40,33 @@ void recieveRadio(){
 //Servo ESC2;
 AF_DCMotor motor1(1, MOTOR12_64KHZ);
 AF_DCMotor motor2(2, MOTOR12_64KHZ);
+AF_DCMotor motor3(3, MOTOR12_64KHZ);
+AF_DCMotor motor4(4, MOTOR12_64KHZ);
 void runWheel(int motorSpeed, int side){
   if(DRIVERTYPE==0){
-    motorSpeed = map(motorSpeed, 0, 127, -255, 255);
+    Serial.println("Run");
+    Serial.println(motorSpeed);
+    motorSpeed = map(motorSpeed, 0, 127, -100, 100);
+    Serial.println(motorSpeed);
     if (side==0){
       motor1.setSpeed(abs(motorSpeed));
       if (motorSpeed==0){motor1.run(RELEASE);return;}
       if (motorSpeed>0){motor1.run(FORWARD);}
       if (motorSpeed<0){motor1.run(BACKWARD);}
-    }
-    if (side==1){
+      motor2.setSpeed(abs(motorSpeed));
       if (motorSpeed==0){motor2.run(RELEASE);return;}
       if (motorSpeed>0){motor2.run(FORWARD);}
       if (motorSpeed<0){motor2.run(BACKWARD);}
-      motor2.setSpeed(abs(motorSpeed));
+    }
+    if (side==1){
+      motor3.setSpeed(abs(motorSpeed));
+      if (motorSpeed==0){motor3.run(RELEASE);return;}
+      if (motorSpeed>0){motor3.run(FORWARD);}
+      if (motorSpeed<0){motor3.run(BACKWARD);} 
+      motor4.setSpeed(abs(motorSpeed));
+      if (motorSpeed==0){motor4.run(RELEASE);return;}
+      if (motorSpeed>0){motor4.run(FORWARD);}
+      if (motorSpeed<0){motor4.run(BACKWARD);} 
     }
   }
   else if(DRIVERTYPE==1){
@@ -82,11 +94,11 @@ void runLight(int state){
 }
 
 void decodeData(char* data){
-  Serial.println(data[0]);
-  Serial.println(data[1]);
-  Serial.println(data[2]);
-  Serial.println(data[3]);
-  Serial.println(data[4]);
+  Serial.println(data[0],HEX);
+  Serial.println(data[1],HEX);
+  Serial.println(data[2],HEX);
+  Serial.println(data[3],HEX);
+  Serial.println(data[4],HEX);
   runWheel(data[0],0);
   runWheel(data[1],1);
   //runServo(data[2],0);
@@ -101,13 +113,13 @@ void setup(){
 
 void loop() {
   recieveRadio();
-  decodeData(dataIn);
-
+  decodeData(buf);
+  delay(200);
   //Temp Motor test
-//  delay(5000);
+//  delay(2000);
 //  runWheel(0, 0);
-//  delay(5000);
+//  delay(2000);
 //  runWheel(64, 0);
-//  delay(5000);
+//  delay(2000);
 //  runWheel(127, 0);
 }

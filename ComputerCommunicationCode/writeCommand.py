@@ -4,7 +4,7 @@ import sys
 
 
 #These are the values that can be changed depending on the situation
-port = "/dev/cu.usbmodem14101" #this is the port that is used to access the arduino and will change
+port = "/dev/cu.usbmodem14201" #this is the port that is used to access the arduino and will change
 
 
 

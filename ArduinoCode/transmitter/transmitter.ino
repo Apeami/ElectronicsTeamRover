@@ -38,7 +38,8 @@ void recieveWire(){
 }
 
 void transmitRadio(){
-    //Serial.println("Transmitter");
+    Serial.println("Transmitter");
+    Serial.println(dataBuffer[4],HEX);
     const char * msg = dataBuffer; //nessage is a data buffer
     //const char * msg = "hello my name is";
 
