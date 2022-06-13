@@ -4,7 +4,7 @@ import sys
 
 
 #These are the values that can be changed depending on the situation
-port = "/dev/cu.usbmodem14201" #this is the port that is used to access the arduino and will change
+port = "/dev/cu.usbmodem14101" #this is the port that is used to access the arduino and will change
 
 
 
@@ -88,17 +88,19 @@ def testFunction():
             data = input("Data: ")
             side = input("Side: ")
             setWheel(int(data), side)
-        if input == "Q":
-            break
-            return
-        if input == "D":
+        if inp == "D":
+            print("HERE")
             data = input("Data: ")
             setWheel(int(data), "Left")
             setWheel(int(data), "Right")
-        if input =="T":
+        if inp =="T":
             data = input("Data: ")
             setWheel(int(data), "Left")
             setWheel(-int(data), "Right")
+        if inp == "Q":
+            break
+            return
+
 
 if __name__=="__main__":
     setupCommunication()
