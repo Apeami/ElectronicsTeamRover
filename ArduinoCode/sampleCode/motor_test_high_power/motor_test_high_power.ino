@@ -2,6 +2,7 @@
 
 void runWheel(int motorSpeed, int side){
   if (side==0){
+    Serial.println("Motorspeed: " + String(motorSpeed));
     if (motorSpeed==0){
       digitalWrite(5,LOW);
       digitalWrite(6,LOW);
@@ -36,6 +37,7 @@ void motorSetup(){
 
 void setup() {
   motorSetup();
+  Serial.begin(9600);
 }
 
 void loop() {

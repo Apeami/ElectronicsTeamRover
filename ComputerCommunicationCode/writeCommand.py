@@ -1,10 +1,10 @@
 import serial
 import time
 import sys
-
+from pynput.keyboard import Key, Listener
 
 #These are the values that can be changed depending on the situation
-port = "/dev/cu.usbmodem14101" #this is the port that is used to access the arduino and will change
+port = "/dev/cu.usbmodem14201" #this is the port that is used to access the arduino and will change
 
 
 
@@ -23,12 +23,14 @@ arrayToSend = [0,0,0,0,0]
 
 try:
     ser=serial.Serial(port,9600) #this is the setup of the serial connection
+    print("Serial port succesfully connected")
 except:
     print("No serial port to be found. Maybe try using your mom's port.")
     sys.exit(1)
 
 def setupCommunication():
     #This gets it all ready to go idk why i need to do this.
+    print("Communication Setup")
     setOnState(0)
 
 
@@ -36,7 +38,6 @@ def setWheel(speed, side):
     speed = speed - SPEEDMIN
     speed = speed / (SPEEDMAX-SPEEDMIN)
     speed = speed *127
-
     if side =="Left":
         arrayToSend[0]=speed
     if side =="Right":
@@ -77,33 +78,82 @@ def transmitWire():
 def closeCommunication():
     ser.close() #it is important to close the communication channel
 
+
+def on_press(key):
+    if key == Key.up:
+        print("HERE")
+        setWheel(255, "Left")
+        setWheel(255, "Right")
+    if key == Key.down:
+        setWheel(-255, "Left")
+        setWheel(-255, "Right")
+    if key == Key.left:
+        setWheel(-255, "Left")
+        setWheel(255, "Right")
+    if key == Key.right:
+        setWheel(255, "Left")
+        setWheel(-255, "Right")
+
+
+def on_release(key):
+    if key == Key.up or key == Key.down or key == Key.left or key == Key.right:
+        print("RELEASE")
+        setWheel(0, "Left")
+        setWheel(0, "Right")
+
+setupCommunication()
+
+# Collect events until released
+with Listener(
+        on_press=on_press,
+        on_release=on_release) as listener:
+    listener.join()
+
+
+
 def testFunction():
+    pass
     #test function that can be written to to test the code
-    while 1:
-        inp = input("Command: ")
-        if inp == "P":
-            data = input("Data: ")
-            setOnState(int(data))
-        if inp == "M":
-            data = input("Data: ")
-            side = input("Side: ")
-            setWheel(int(data), side)
-        if inp == "D":
-            print("HERE")
-            data = input("Data: ")
-            setWheel(int(data), "Left")
-            setWheel(int(data), "Right")
-        if inp =="T":
-            data = input("Data: ")
-            setWheel(int(data), "Left")
-            setWheel(-int(data), "Right")
-        if inp == "Q":
-            break
-            return
+    # print("TEST")
+    # while 1:
+    #     print("RUN")
+    #     print(isUp)
+    #     if isUp:
+    #         print("IS UP")
+    #         setWheel(255, 0)
+    #         setWheel(255, 1)
+    #     if isDown:
+    #         setWheel(-255, 0)
+    #         setWheel(-255, 1)
+    #     if isLeft:
+    #         setWheel(255, 0)
+    #         setWheel(-255, 1)
+    #     if isRight:
+    #         setWheel(-255, 0)
+    #         setWheel(255, 1)
 
+        # inp = input("Command: ")
+        # if inp == "P":
+        #     data = input("Data: ")
+        #     setOnState(int(data))
+        # if inp == "M":
+        #     data = input("Data: ")
+        #     side = input("Side: ")
+        #     setWheel(int(data), side)
+        # if inp == "D":
+        #     print("HERE")
+        #     data = input("Data: ")
+        #     setWheel(int(data), "Left")
+        #     setWheel(int(data), "Right")
+        # if inp =="T":
+        #     data = input("Data: ")
+        #     setWheel(int(data), "Left")
+        #     setWheel(-int(data), "Right")
+        # if inp == "Q":
+        #     break
+        #     return
 
-if __name__=="__main__":
-    setupCommunication()
-    testFunction()
-    closeCommunication()
-    print("Control program Exit")
+#setupCommunication()
+#testFunction()
+#closeCommunication()
+print("Control program Exit")
