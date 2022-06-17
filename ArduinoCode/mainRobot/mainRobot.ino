@@ -42,8 +42,9 @@ void recieveRadio(){
 //AF_DCMotor motor2(2, MOTOR12_64KHZ);
 //AF_DCMotor motor3(3, MOTOR12_64KHZ);
 //AF_DCMotor motor4(4, MOTOR12_64KHZ);
-void runWheel(int motorSpeed, int side){
-  motorSpeed = map(motorSpeed, 0, 127, -100, 100);
+void runWheel(int motorSpeedLeft,int motorSpeedRight){
+  motorSpeedLeft = map(motorSpeedLeft, 0, 127, -100, 100);
+  motorSpeedRight = map(motorSpeedRight, 0, 127, -100, 100);
   if(DRIVERTYPE==0){
 //    Serial.println("Run");
 //    Serial.println(motorSpeed);
@@ -71,36 +72,53 @@ void runWheel(int motorSpeed, int side){
   }
   else if(DRIVERTYPE==1){
     Serial.println("RUN");
-    Serial.println(motorSpeed);
-    if (side==0){
-     if (motorSpeed>10){
-        Serial.println("POS0");
-        digitalWrite(5,LOW);
-        digitalWrite(6,HIGH);
-     }if (motorSpeed<-10){
-        Serial.println("NEG0");
-        digitalWrite(5,HIGH);
-        digitalWrite(6,LOW);
-     }if(motorSpeed>-10 && motorSpeed<10){
-        Serial.println("ZER0");
-        digitalWrite(5,LOW);
-        digitalWrite(6,LOW);
-     }
-   }if (side==1){
-      if (motorSpeed>10){
-        Serial.println("POS1");
-        digitalWrite(10,HIGH);
-        digitalWrite(11,LOW);
-      }if(motorSpeed<-10){
-        Serial.println("NEG1");
+    Serial.println("Motorspeed: " + String(motorSpeedLeft) + " " + String(motorSpeedRight) );
+     if (motorSpeedLeft>10 && motorSpeedRight >10){
+        Serial.println("Forward");
+        digitalWrite(12,LOW);
+        digitalWrite(13,HIGH);
         digitalWrite(10,LOW);
         digitalWrite(11,HIGH);
-      }if(motorSpeed>-10 && motorSpeed<10){
-        Serial.println("ZER1");
+     }if (motorSpeedLeft< -10 && motorSpeedRight < -10){
+        Serial.println("Backwards");
+        digitalWrite(12,HIGH);
+        digitalWrite(13,LOW);
+        digitalWrite(10,HIGH);
+        digitalWrite(11,LOW);
+     }if (motorSpeedLeft<-10 && motorSpeedRight > 10){
+        Serial.println("Turn Left");
+        digitalWrite(12,LOW);
+        digitalWrite(13,HIGH);
+        digitalWrite(10,LOW);
+        digitalWrite(11,HIGH);
+     }if(motorSpeedLeft>10 && motorSpeedRight< -10){
+        Serial.println("Turn Right");
+        digitalWrite(12,LOW);
+        digitalWrite(13,HIGH);
+        digitalWrite(10,LOW);
+        digitalWrite(11,HIGH);
+     } else {
+        Serial.println("Stop");
+        digitalWrite(12,LOW);
+        digitalWrite(13,LOW);
         digitalWrite(10,LOW);
         digitalWrite(11,LOW);
-      }
-    }
+     }
+//   if (side==0){
+//      if (motorSpeed>10){
+//        Serial.println("POS1");
+////        digitalWrite(10,HIGH);
+////        digitalWrite(11,LOW);
+//      }else if(motorSpeed<-10){
+//       Serial.println("NEG1");
+////        digitalWrite(11,HIGH);
+////        digitalWrite(10,LOW);
+//      }else if(motorSpeed>-10 && motorSpeed<10){
+//        Serial.println("ZER1");
+////        digitalWrite(10,LOW);
+////        digitalWrite(11,LOW);
+//      }
+//    }
   }
 }
 
@@ -123,8 +141,7 @@ void decodeData(char* data){
   Serial.println(data[2],HEX);
   Serial.println(data[3],HEX);
   Serial.println(data[4],HEX);
-  runWheel(data[0],0);
-  runWheel(data[1],1);
+  runWheel(data[0],data[1]);
   //runServo(data[2],0);
   //runServo(data[3],1);
   switchedOn = data[4];
