@@ -1,0 +1,4 @@
+1) LED light Signal four states
+2) Timeout from controller , change of mode.
+3) Read from controller
+4) Put commands in

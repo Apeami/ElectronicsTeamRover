@@ -1,12 +1,14 @@
+#Import required libraries
 import serial
 import time
 import sys
 from pynput.keyboard import Key, Listener
+import pygame
 
 #These are the values that can be changed depending on the situation
 port = "/dev/cu.usbmodem14201" #this is the port that is used to access the arduino and will change
 
-
+INPUT_TYPE = "Keyboard"
 
 ARREYLEN=5
 
@@ -19,20 +21,19 @@ SPEEDMAX=255
 
 #Global constants
 #Wl, Wr, S1, S2, con
-arrayToSend = [0,0,0,0,0]
+arrayToSend = [63.5,63.5,0,0,0] #This is the array to send over, #ensure default to no movement
 
-try:
-    ser=serial.Serial(port,9600) #this is the setup of the serial connection
-    print("Serial port succesfully connected")
-except:
-    print("No serial port to be found. Maybe try using your mom's port.")
-    sys.exit(1)
 
 def setupCommunication():
-    #This gets it all ready to go idk why i need to do this.
     print("Communication Setup")
+    try:
+        ser=serial.Serial(port,9600) #this is the setup of the serial connection
+        print("Serial port succesfully connected")
+    except:
+        print("No serial port to be found. Maybe try using your mom's port.")
+        sys.exit(1)
+    #This gets it all ready to go idk why i need to do this.
     setOnState(0)
-
 
 def setWheel(speed, side):
     speed = speed - SPEEDMIN
@@ -43,7 +44,6 @@ def setWheel(speed, side):
     if side =="Right":
         arrayToSend[1]=speed
     transmitWire()
-
 
 def setServo(angle, number):
     angle = angle - ANGLEMIN
@@ -76,12 +76,11 @@ def transmitWire():
     ser.write(send)
 
 def closeCommunication():
+    print("End of communication")
     ser.close() #it is important to close the communication channel
-
 
 def on_press(key):
     if key == Key.up:
-        print("HERE")
         setWheel(255, "Left")
         setWheel(255, "Right")
     if key == Key.down:
@@ -94,23 +93,88 @@ def on_press(key):
         setWheel(255, "Left")
         setWheel(-255, "Right")
 
-
 def on_release(key):
     if key == Key.up or key == Key.down or key == Key.left or key == Key.right:
         print("RELEASE")
         setWheel(0, "Left")
         setWheel(0, "Right")
 
-setupCommunication()
+def keyboard_setup():
+    # Collect events until released
+    with Listener(
+            on_press=on_press,
+            on_release=on_release) as listener:
+            listener.join()
 
-# Collect events until released
-with Listener(
-        on_press=on_press,
-        on_release=on_release) as listener:
-    listener.join()
+def joystick_setup():
+    pygame.init()
+    done = False
+    pygame.joystick.init()
+
+    joystick_count = pygame.joystick.get_count()
+    if joystick_count==0:
+        print("NO joystick")
+
+    while not done:
+        for event in pygame.event.get(): # User did something.
+            if event.type == pygame.QUIT: # If user clicked close.
+                done = True # Flag that we are done so we exit this loop.
 
 
+        joystick = pygame.joystick.Joystick(0)
+        joystick.init()
+        try:
+            jid = joystick.get_instance_id()
+        except AttributeError:
+            # get_instance_id() is an SDL2 method
+            jid = joystick.get_id()
+            print("Joystick {}".format(jid))
+        name = joystick.get_name()
+        print("Joystick name: {}".format(name))
+        try:
+            guid = joystick.get_guid()
+        except AttributeError:
+            # get_guid() is an SDL2 method
+            pass
+        else:
+            print("GUID: {}".format(guid))
 
+        axes = joystick.get_numaxes()
+        print("Number of axes: {}".format(axes))
+
+        for i in range(axes):
+            axis = joystick.get_axis(i)
+            print("Axis {} value: {:>6.3f}".format(i, axis))
+
+        side = joystick.get_axis(0)
+        forward = -joystick.get_axis(1)
+
+
+        buttons = joystick.get_numbuttons()
+        print("Number of buttons: {}".format(buttons))
+
+        for i in range(buttons):
+            button = joystick.get_button(i)
+            print("Button {:>2} value: {}".format(i, button))
+
+        hats = joystick.get_numhats()
+        print("Number of hats: {}".format(hats))
+
+        for i in range(hats):
+            hat = joystick.get_hat(i)
+            print("Hat {} value: {}".format(i, str(hat)))
+    pygame.quit()
+
+def start():
+    setupCommunication()
+    if INPUT_TYPE=="Keyboard":
+        keyboard_setup()
+    if INPUT_TYPE=="Joystick":
+        joystick_setup()
+    closeCommunication()
+
+start()
+#Code for testing
 def testFunction():
     pass
     #test function that can be written to to test the code
@@ -152,8 +216,3 @@ def testFunction():
         # if inp == "Q":
         #     break
         #     return
-
-#setupCommunication()
-#testFunction()
-#closeCommunication()
-print("Control program Exit")
