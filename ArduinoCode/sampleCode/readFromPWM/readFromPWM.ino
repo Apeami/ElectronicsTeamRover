@@ -49,6 +49,10 @@ void setupControllerReader(){
 
 //This calculates duty cycle
 int calculateDutyCycle(int A, int B){
+  A /= 100;
+  B /= 100;
+  Serial.println(A+B);
+  Serial.println(A*1000);
   return (A*100)/(A+B);
 }
 
@@ -61,9 +65,10 @@ void setup() {
 void loop() {
 
   //Read byte from serial and print
+  Serial.println("LOOP");
   Serial.println(timeHigh[0]);
-  Serial.println(timeLow[0]);
-  Serial.println(calculateDutyCycle(timeHigh[0], timeLow[0]));
+  //Serial.println(timeLow[0]);
+  //Serial.println(calculateDutyCycle(timeHigh[0], timeLow[0]));
 
   //Delay for smoothness
   delay(100);
