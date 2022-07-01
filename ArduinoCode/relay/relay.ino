@@ -55,9 +55,18 @@ void setup(){
   Serial.begin(9600);
 }
 
+void runJoystick(){
+  //TODO
+}
+
 void loop(){
   //First receive from computer and then transmit, 5 times every second.
   recieveWire();
+  
+  if (dataBuffer[4]==4){
+    runJoystick();
+  }
+  
   transmitRadio();
   delay(200);
 }

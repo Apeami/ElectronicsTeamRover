@@ -1,6 +1,7 @@
-#include <RH_ASK.h>
-#include <SPI.h> // Not actually used but needed to compile
-#include "library.h"
+
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
 
 
 /*
@@ -16,7 +17,9 @@
 //PIN information
 //Reserved pins 13,12,11,1,0 ,5(Maybe)
 // Radio Pins - 2
-int RADIO_RECIEVE = 8;
+RF24 radio(A9, A8); // CE, CSN
+const byte address[6] = "00001";
+
 //Motor control Pins
 int ML1A = 22;
 int ML1B = 23;
@@ -50,9 +53,8 @@ int pciTime;
 
 
 //Radio Settings
-RH_ASK driver(2000, RADIO_RECIEVE, 4, 5); //Set up radio communication library
 uint8_t buflen = 5;
-uint8_t buf[RH_ASK_MAX_MESSAGE_LEN]; //This is the array in which the radio input is found.
+uint8_t buf[5]; //This is the array in which the radio input is found.
 
 
 /*
@@ -64,15 +66,14 @@ uint8_t buf[RH_ASK_MAX_MESSAGE_LEN]; //This is the array in which the radio inpu
 //This function recieves radio input, and puts it into buf array. It also returnes a bool if radio is connected.
 int radioTick = 0; //This variable counts how long ago was last radio revcive
 bool recieveRadio(){
+  Serial.println("RECIEVE");
   radioTick++;
-  if (driver.recv(buf, &buflen)){ // Non-blocking. Message with a good checksum received, dump it.
+  if (radio.available()) {
+    Serial.println("EFE");
     radioTick=0; //reset
-    driver.printBuffer("Got:", buf, buflen); //Print
-    String rcv;
-    for (int i = 0; i < buflen; i++) { //Print
-      rcv += (char)buf[i];
-    }
+    radio.read(buf, buflen);
   }
+
   if (radioTick>25){ return false;} //Last radio recieve was 5 seconds ago, assume that radio is not connected.
   else{return true;}
 }
@@ -146,6 +147,12 @@ void runWheel(int motorSpeedLeft,int motorSpeedRight){
   }
 }
 
+void operateExternalJoystick(){
+  int verMap = map(timeHigh[1],1000,1800, 0, 127);
+  int horMap = map(timeHigh[1],1000,1800, 0, 127);
+  runWheel(verMap,horMap);
+}
+
 
 /*
 --------------------------------------------------------
@@ -176,9 +183,10 @@ int calculateDutyCycle(int A, int B){
 
 //This function sets up all the requirements for the radio
 void setupRadio(){
-  if (!driver.init()){
-    Serial.println("init failed");
-  }
+  radio.begin();
+  radio.openReadingPipe(0, address);
+  radio.setPALevel(RF24_PA_MIN);
+  radio.startListening();
 }
 
 //Ensure all motor pins are set to iotupt
@@ -237,6 +245,9 @@ void setup() {
 // 3 - Automatic #2 (LED odd flash)
 int operationMode = 0;
 
+//If the external joystick wants to take control
+int extJoystickControl = 0;
+
 void loop() {
   //This loop runs 5 times every second
   bool isConnectedRadio = recieveRadio(); //Recieve new data from radio input
@@ -246,6 +257,28 @@ void loop() {
     operationMode = buf[4]; //Get operation mode from radio signal sent.
   }
   setLEDPin(operationMode); //Set blinking LED to mark current operation mode
-  runWheel(buf[0],buf[1]);
+
+  //Code to get input form joystick
+  extJoystickControl = 0; //TEMP TODO
+  
+  //TEMP 
+  operationMode = 1;
+
+  if (extJoystickControl == 0){
+    if (operationMode==5){ //Operation of external joystick
+      operateExternalJoystick();
+    }
+    if (operationMode==7){ //Arduino automatic operation
+      Serial.println("NO auto operation");
+    }
+
+    if (operationMode==1 or operationMode==2 or operationMode==3 or operationMode==4 or operationMode==6){ //Motion is calculated from another location
+     Serial.println(buf[0]);
+     Serial.println(buf[1]);
+     //runWheel(buf[0],buf[1]);
+    }
+  }if (extJoystickControl == 1){
+    operateExternalJoystick()
+  }
   delay(200);
 }

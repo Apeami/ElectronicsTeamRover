@@ -2,62 +2,34 @@ import pygame
 import pygame.camera
 from pygame.locals import *
 
+import button
+import communicator
+
 pygame.init()
 pygame.camera.init()
+pygame.joystick.init()
 pygame.display.set_caption('Rover Control Panel')
 
-class Button:
-    """Create a button, then blit the surface in the while loop"""
-
-    def __init__(self, text,  pos, size, font, bg):
-        self.x, self.y = pos
-        self.font = pygame.font.SysFont("Arial", font)
-        self.size = size
-        self.change_text(text, bg)
-
-    def change_text(self, text, bg="black"):
-        """Change the text whe you click"""
-        self.text = self.font.render(text, 1, pygame.Color("White"))
-
-        self.surface = pygame.Surface(self.size)
-        self.surface.fill(bg)
-        self.surface.blit(self.text, (self.size[0]/2-self.text.get_size()[0]/2, self.size[1]/2-self.text.get_size()[1]/2))
-        self.rect = pygame.Rect(self.x, self.y, self.size[0], self.size[1])
-
-    def show(self,screen):
-        screen.blit(self.surface, (self.x, self.y))
-
-    def click(self, event):
-        x, y = pygame.mouse.get_pos()
-        for e in event:
-            if e.type == pygame.MOUSEBUTTONDOWN:
-                if pygame.mouse.get_pressed()[0]:
-                    if self.rect.collidepoint(x, y):
-                        return True
-        return False
-
-
-def mainloop():
-    """ The infinite loop where things happen """
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-            button1.click(event)
-        button1.show()
-        clock.tick(30)
-        pygame.display.update()
 
 class Capture(object):
     def __init__(self):
 
+        #Rover commands
+        self.wheelLeft = 0
+        self.wheelRight = 0
+        self.servoAxis = 0
+        self.servoGrap = 0
+        self.modeId = 0
+
         #Connection
-        self.mode = "Main Mode"
+        self.mode = "Button"
         self.relay = False
         self.rover = False
         self.joystick = False
         self.keyboard = False
+        self.camera = False
         self.state=False #False = off, True = on
+        self.error=True
 
         #values
         self.speed=0
@@ -69,6 +41,8 @@ class Capture(object):
         self.batvol=0
 
         #buttons
+        self.modesList = ('Button','Keyboard','JoystickCom','JoystickArd',"JoystickExt","AutomaticCom","AutomaticArd")
+        self.currentCycle = 0
         self.set_buttons()
 
         #display
@@ -78,35 +52,64 @@ class Capture(object):
         # create a display surface. standard pygame stuff
         self.display = pygame.display.set_mode(self.size, 0 )
 
-        # this is the same as what we saw before
-        self.clist = pygame.camera.list_cameras()
-        if not self.clist:
-            raise ValueError("Sorry, no cameras detected.")
-        self.cam = pygame.camera.Camera(self.clist[0], self.size)
-        self.cam.start()
+        #refresh items
+        self.refresh_items()
 
         # create a surface to capture to.  for performance purposes
         # bit depth is the same as that of the display surface.
         self.snapshot = pygame.surface.Surface(self.camSize, 0, self.display)
 
-    def get_camera(self):
-        # if you don't want to tie the framerate to the camera, you can check
-        # if the camera has an image ready.  note that while this works
-        # on most cameras, some will never return true.
-        if self.cam.query_image():
-            self.snapshot = self.cam.get_image(self.snapshot)
+    def refresh_items(self):
+        #camera
+        self.clist = pygame.camera.list_cameras()
+        if self.clist:
+            self.camera=True
+            self.cam = pygame.camera.Camera(self.clist[0], self.size)
+            self.cam.start()
+        else:
+            self.camera=False
+        #joysticks
+        if pygame.joystick.get_count()>0:
+            self.joystick=True
+            self.joystickItem = pygame.joystick.Joystick(0)
+            self.joystickItem.init()
+        else:
+            self.joystick=False
+        #keyboard
+        try:
+            pygame.key.get_pressed()
+            self.keyboard=True
+        except:
+            self.keyboard=False
+        #relay
+        self.communication = communicator.Communicator("/dev/cu.usbmodem14101")
+        if self.communication.connect ==True:
+            self.relay = True
+        if self.communication.connect ==False:
+            self.relay = False
+        #Rover
+        #no implementation yet
 
-        # blit it to the display surface.  simple!
-        self.display.blit(self.snapshot, (10,30))
+
+    def get_camera(self):
+        if self.camera==True:
+            # if you don't want to tie the framerate to the camera, you can check
+            # if the camera has an image ready.  note that while this works
+            # on most cameras, some will never return true.
+            if self.cam.query_image():
+                self.snapshot = self.cam.get_image(self.snapshot)
+
+            # blit it to the display surface.  simple!
+            self.display.blit(self.snapshot, (10,30))
 
     def get_background(self):
         red = (255,0, 0)
-        blue = (0,255, 0)
+        blue = (45,66, 79)
         white = (255,255,255)
         green = (0,0,255)
         cyan = (0,255,255)
         self.display.fill(red)
-        #pygame.draw.rect(self.display,blue,(10,10,400,250)) #Camera Zone
+        pygame.draw.rect(self.display,blue,(10,30,400,230)) #Camera Zone
         pygame.draw.rect(self.display,white,(420,10,210,320)) #Information text zone
         pygame.draw.rect(self.display,cyan,(420,340,210,130)) #Mode select zone
         pygame.draw.rect(self.display,green,(10,270,400,200)) #Control zone
@@ -118,6 +121,11 @@ class Capture(object):
         self.display.blit(font.render('Connection Status', False, (0, 0, 0)) , (447,115))
         self.display.blit(font.render('Controller', False, (0, 0, 0)) , (160,270))
         self.display.blit(font.render('Set Mode', False, (0, 0, 0)) , (480,340))
+        if self.camera==False:
+            self.display.blit(font.render('NO SIGNAL', False, (255, 255, 255)) , (160,140))
+
+        if self.error ==True:
+            self.display.blit(font.render('ERROR IN CONFIG!!', False, (255, 0, 0)) , (430,290))
 
     def set_values(self):
         font = pygame.font.SysFont('Arial', 15)
@@ -143,32 +151,43 @@ class Capture(object):
             self.display.blit(font.render('Keyboard: Connection Success', False, (0, 255, 0)) , (425,185)) #Keyboard Connect
         else:
             self.display.blit(font.render('Keyboard: No Connection', False, (255, 0, 0)) , (425,185)) #Keyboard Connect
+        if self.camera==True:
+            self.display.blit(font.render('Camera: Connection Success', False, (0, 255, 0)) , (425,200)) #Camera Connect
+        else:
+            self.display.blit(font.render('Camera: No Connection', False, (255, 0, 0)) , (425,200)) #Camera Connect
 
-        self.display.blit(font.render('Mode: '+self.mode, False, (0, 0, 0)) , (425,200)) #Current Mode
+        self.display.blit(font.render('Mode: '+self.mode, False, (0, 0, 0)) , (425,215)) #Current Mode
+        if self.modeId == -1:
+            self.error=True
+        else:
+            self.error=False
 
         if self.state==True:
-            self.display.blit(font.render('Current State : On', False, (0, 255, 0)) , (425,215)) #Current Mode
+            self.display.blit(font.render('Current State : On', False, (0, 255, 0)) , (425,230)) #Current Mode
         if self.state==False:
-            self.display.blit(font.render('Current State : Off', False, (255, 0, 0)) , (425,215)) #Current Mode
+            self.display.blit(font.render('Current State : Off', False, (255, 0, 0)) , (425,230)) #Current Mode
 
     def set_buttons(self):
-        self.btnStop = Button("STOP",(180, 355),(50,50), 15, (255,0,0))
-        self.btnLeft = Button("Left",(240, 355),(50,50), 15, (0,180,180))
-        self.btnRight = Button("Right",(120, 355),(50,50), 15, (0,180,180))
-        self.btnTop = Button("Fwd",(180, 295),(50,50), 15, (0,180,180))
-        self.btnDown = Button("Back",(180, 415),(50,50), 15, (0,180,180))
+        self.btnStop = button.Button("STOP",(200, 355),(50,50), 15, (255,0,0))
+        self.btnLeft = button.Button("Left",(260, 355),(50,50), 15, (0,180,180))
+        self.btnRight = button.Button("Right",(140, 355),(50,50), 15, (0,180,180))
+        self.btnTop = button.Button("Fwd",(200, 295),(50,50), 15, (0,180,180))
+        self.btnDown = button.Button("Back",(200, 415),(50,50), 15, (0,180,180))
 
-        self.btnArmUp = Button("Arm Up",(40, 295),(50,50), 12, (200,180,180))
-        self.btnArmMid = Button("Arm Mid",(40, 355),(50,50), 12, (200,180,180))
-        self.btnArmDown = Button("Arm Down",(40, 415),(50,50), 10, (200,180,180))
+        self.btnArmUp = button.Button("Arm Up",(20, 295),(50,50), 12, (200,180,180))
+        self.btnArmMid = button.Button("Arm Mid",(20, 355),(50,50), 12, (200,180,180))
+        self.btnArmDown = button.Button("Arm Down",(20, 415),(50,50), 10, (200,180,180))
+        self.btnArmGrab = button.Button("Arm Grab",(80, 295),(50,50), 10, (200,180,180))
 
-        self.btnOff = Button("Off",(330, 295),(50,50), 15, (255,0,0))
-        self.btnOn = Button("On",(330, 355),(50,50), 15, (0,255,0))
+        self.btnOff = button.Button("Off",(330, 295),(50,50), 15, (255,0,0))
+        self.btnOn = button.Button("On",(330, 355),(50,50), 15, (0,255,0))
+        self.btnHelp = button.Button("Help",(330, 415),(50,50), 15, (69,255,123))
+        self.btnRefresh = button.Button("Refresh",(260, 295),(50,50), 15, (69,255,123))
 
-        self.btnModeChoose = Button("Mode Current",(450, 370),(150,35), 15, (0,0,0))
-        self.btnModeSelect = Button("Change Mode",(450, 420),(150,35), 15, (0,0,255))
+        self.btnModeChoose = button.Button(self.modesList[self.currentCycle] ,(450, 370),(150,35), 15, (0,0,0))
+        self.btnModeSelect = button.Button("Change Mode",(450, 420),(150,35), 15, (0,0,255))
 
-    def run_buttons(self):
+    def run_buttons(self,event):
         self.btnStop.show(self.display)
         self.btnLeft.show(self.display)
         self.btnRight.show(self.display)
@@ -178,32 +197,127 @@ class Capture(object):
         self.btnArmUp.show(self.display)
         self.btnArmMid.show(self.display)
         self.btnArmDown.show(self.display)
+        self.btnArmGrab.show(self.display)
 
         self.btnOff.show(self.display)
         self.btnOn.show(self.display)
+        self.btnHelp.show(self.display)
+        self.btnRefresh.show(self.display)
 
+        if self.btnModeChoose.click(event) == True:
+            self.currentCycle+=1
+            if self.currentCycle>len(self.modesList)-1:
+                self.currentCycle=0
+
+        if self.btnModeSelect.click(event) == True:
+            self.modeId=self.currentCycle
+            self.mode = self.modesList[self.modeId]
+            if self.relay == True:
+                self.communication.setWheel(0, "Left")
+                self.communication.setWheel(0, "Right")
+
+        if self.btnOff.click(event) == True:
+            self.state=False
+        if self.btnOn.click(event) == True:
+            self.state=True
+
+        if self.btnRefresh.click(event) == True:
+            self.refresh_items()
+
+        if self.btnStop.click(event) == True:
+            print("Pressed")
+
+        self.btnModeChoose.change_text(self.modesList[self.currentCycle],(0,0,0))
         self.btnModeChoose.show(self.display)
         self.btnModeSelect.show(self.display)
 
-        if self.btnStop.click(pygame.event.get()) == True:
-            print("Pressed")
+    def manage_keyboard(self):
+        keys=pygame.key.get_pressed()
+        if self.modeId==1:
+            if keys[K_LEFT] or keys[K_a]:
+                self.communication.setWheel(255, "Left")
+                self.communication.setWheel(-255, "Right")
+            if keys[K_RIGHT] or keys[K_d]:
+                self.communication.setWheel(-255, "Left")
+                self.communication.setWheel(255, "Right")
+            if keys[K_DOWN] or keys[K_s]:
+                self.communication.setWheel(-255, "Left")
+                self.communication.setWheel(-255, "Right")
+            if keys[K_UP] or keys[K_w]:
+                self.communication.setWheel(255, "Left")
+                self.communication.setWheel(255, "Right")
+            if keys[K_SPACE]:
+                self.communication.setWheel(0, "Left")
+                self.communication.setWheel(0, "Right")
+
+    def manage_joystick(self):
+        if self.modeId==2 and self.joystick==True:
+            side = self.joystickItem.get_axis(3)
+            forward = -self.joystickItem.get_axis(2)
+            print(forward)
+            print(side)
+            if abs(side)<0.2:
+                wheelL = (forward)*255
+                wheelR = (forward)*255
+            else:
+                wheelL = (side)*255
+                wheelR = -(side)*255
+            self.communication.setWheel(wheelL, "Left")
+            self.communication.setWheel(wheelR, "Right")
+
+    def manage_button(self,event):
+        if self.modeId==0:
+            if self.btnStop.click(event) == True:
+                self.communication.setWheel(0, "Left")
+                self.communication.setWheel(0, "Right")
+            if self.btnLeft.click(event) == True:
+                self.communication.setWheel(255, "Left")
+                self.communication.setWheel(-255, "Right")
+            if self.btnRight.click(event) == True:
+                self.communication.setWheel(-255, "Left")
+                self.communication.setWheel(255, "Right")
+            if self.btnTop.click(event) == True:
+                self.communication.setWheel(255, "Left")
+                self.communication.setWheel(255, "Right")
+            if self.btnDown.click(event) == True:
+                self.communication.setWheel(-255, "Left")
+                self.communication.setWheel(-255, "Right")
+
+    def manage_mode(self):
+        if self.state == True:
+            self.communication.setCurrentState(self.modeId+1)
+        if self.state == False:
+            self.communication.setCurrentState(0)
+
 
     def main(self):
+        clock = pygame.time.Clock()
         going = True
         while going:
+
+            events = pygame.event.get()
+
             self.get_background()
             self.get_text()
             self.set_values()
             self.get_camera()
-            self.run_buttons()
+            self.run_buttons(events)
 
-            events = pygame.event.get()
+            if self.relay == True:
+                self.manage_mode()
+                self.manage_button(events)
+                self.manage_joystick()
+                self.manage_keyboard()
+
+
             for e in events:
                 if e.type == QUIT or (e.type == KEYDOWN and e.key == K_ESCAPE):
                     # close the camera safely
                     self.cam.stop()
                     going = False
             pygame.display.flip()
+
+        dt = clock.tick(15)
 
 captureObj =  Capture()
 captureObj.main()

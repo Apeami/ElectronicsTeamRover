@@ -26,19 +26,22 @@ SPEEDMAX=255
 
 class Communicator:
 
-    def __init__(port):
+    def __init__(self,port):
         print("Communication Setup")
         self.arrayToSend = [63.5,63.5,0,0,0]
         try:
             self.ser=serial.Serial(port,9600) #this is the setup of the serial connection
             print("Serial port succesfully connected")
+            self.connect = True
+            #This gets it all ready to go idk why i need to do this.
+            self.setCurrentState(0)
         except:
             print("No serial port to be found.")
-            sys.exit(1)
-        #This gets it all ready to go idk why i need to do this.
-        setCurrentState(0)
+            self.connect = False
+            #sys.exit(1)
 
-    def setWheel(speed, side):
+
+    def setWheel(self,speed, side):
         speed = speed - SPEEDMIN
         speed = speed / (SPEEDMAX-SPEEDMIN)
         speed = speed *127
@@ -48,7 +51,7 @@ class Communicator:
             self.arrayToSend[1]=speed
         self.transmitWire()
 
-    def setServo(angle, number):
+    def setServo(self,angle, number):
         angle = angle - ANGLEMIN
         angle = angle / (ANGLEMAX-ANGLEMIN)
         angle = angle *127
@@ -59,14 +62,15 @@ class Communicator:
             self.arrayToSend[3]=angle
         self.transmitWire()
 
-    def setCurrentState(state):
-        if state==0 or state==1:
+    def setCurrentState(self,state):
+        print(state)
+        if state>=0 and state<=7:
             self.arrayToSend[4] =  state
         else:
             self.arrayToSend[4] = 0
         self.transmitWire()
 
-    def transmitWire():
+    def transmitWire(self):
         array=self.arrayToSend #This is the array of data that we are sending to the arduino
         #array=[0,0,0,0,1]
         print(array)
@@ -78,7 +82,7 @@ class Communicator:
         print(send)
         self.ser.write(send)
 
-    def closeCommunication():
+    def closeCommunication(self):
         print("End of communication")
         self.ser.close() #it is important to close the communication channel
 
