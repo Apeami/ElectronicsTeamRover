@@ -5,7 +5,13 @@
 RF24 radio(7, 8); // CE, CSN
 char dataBuffer[5] = {0,0,0,0,0}; //This temporary storage buffer
 
-const byte address[6] = "00001";
+char recievedBuffer[8] = {0,0,0,0,0,0,0,0};
+
+const byte addressTransmit[6] = "00001";
+const byte addressRecieve[6] = "00002";
+
+int counter = 0;
+const int THRESH = 1;
 
 void setupWire(){
   Serial.begin(9600);
@@ -14,9 +20,10 @@ void setupWire(){
 
 void setupRadio(){
   radio.begin();
-  radio.openWritingPipe(address);
+  radio.openWritingPipe(addressTransmit);
+  radio.openReadingPipe(1, addressRecieve);
   radio.setPALevel(RF24_PA_MIN);
-  radio.stopListening();
+  radio.startListening();
 }
 
 //This function recieves information from the computer via wire.
@@ -31,6 +38,7 @@ void recieveWire(){
     }
     if (i>=5){done=false; i=0;} //array length passed - no more data
   } 
+  //Serial.println(dataBuffer[4]);
   if (dataBuffer[4]== 1){
     digitalWrite(LED_BUILTIN,1);
   }
@@ -39,12 +47,30 @@ void recieveWire(){
   }
 }
 
+void transmitWire(){
+  for (int i=0; i<8;i++){
+     Serial.write(recievedBuffer[i]);
+  }
+}
+
 //This function transmittes the data through the radio
 void transmitRadio(){
-    Serial.println("Transmitter");
-    Serial.println(dataBuffer[4],HEX);
-
+    //Serial.println("Transmitter");
+    //Serial.println(dataBuffer[4],HEX);
+    radio.stopListening();
     radio.write(dataBuffer, 5);
+    radio.startListening();
+}
+
+int radioTick = 0; //This variable counts how long ago was last radio revcive
+bool recieveRadio(){
+  radioTick++;
+  if (radio.available()) {
+    radioTick=0; //reset
+    radio.read(recievedBuffer, 8);
+  }
+  if (radioTick>75){ return false;} //Last radio recieve was 5 seconds ago, assume that radio is not connected.
+  else{return true;}
 }
 
 //Setup funciton
@@ -63,10 +89,22 @@ void loop(){
   //First receive from computer and then transmit, 5 times every second.
   recieveWire();
   
-  if (dataBuffer[4]==4){
+  if (dataBuffer[4]==4){ //Operation mode is 4(Arduino Joystick)
     runJoystick();
   }
   
   transmitRadio();
-  delay(200);
+  bool connection = recieveRadio();
+  if (connection==true){
+    recievedBuffer[0]=1;
+  }if (connection==false){
+    recievedBuffer[0]=0;
+  }
+  
+  counter++;
+  if (counter>THRESH){
+    transmitWire();
+    counter=0;
+  }
+  delay(1);
 }

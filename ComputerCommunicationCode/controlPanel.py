@@ -289,6 +289,19 @@ class Capture(object):
         if self.state == False:
             self.communication.setCurrentState(0)
 
+    def set_recieved_values(self):
+        if self.communication.recievedValues[0] == 1:
+            self.rover = True
+        if self.communication.recievedValues[0] == 0:
+            self.rover = False
+
+        self.speed = self.communication.recievedValues[1]
+        self.angSpeed = self.communication.recievedValues[2]
+        self.orientation = self.communication.recievedValues[3]
+        self.posx = self.communication.recievedValues[4]
+        self.posy = self.communication.recievedValues[5]
+        self.posz = self.communication.recievedValues[6]
+        self.batvol = self.communication.recievedValues[7]
 
     def main(self):
         clock = pygame.time.Clock()
@@ -297,6 +310,8 @@ class Capture(object):
 
             events = pygame.event.get()
 
+            self.communication.recieveValues()
+            self.set_recieved_values()
             self.get_background()
             self.get_text()
             self.set_values()
@@ -317,7 +332,7 @@ class Capture(object):
                     going = False
             pygame.display.flip()
 
-        dt = clock.tick(15)
+        dt = clock.tick(5)
 
 captureObj =  Capture()
 captureObj.main()

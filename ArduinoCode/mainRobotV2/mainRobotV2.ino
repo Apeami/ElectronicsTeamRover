@@ -1,4 +1,7 @@
 
+#include "read_backup.h"
+#include "open_loop.h"
+
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
@@ -18,7 +21,8 @@
 //Reserved pins 13,12,11,1,0 ,5(Maybe)
 // Radio Pins - 2
 RF24 radio(A9, A8); // CE, CSN
-const byte address[6] = "00001";
+const byte addressRecieve[6] = "00001";
+const byte addressTransmit[6] = "00002";
 
 //Motor control Pins
 int ML1A = 22;
@@ -43,18 +47,20 @@ int MR3S = 7;
 
 //Radio input pins - Pins A0 - A5
 //Controller reader variables
-const int pwmPIN[]={A0,A1,A2,A3,A4}; //Array of pins
-const int num_ch = 5; //Number of pins
-int prev_pinState[num_ch]; //The previous state of every pin //Don't change
-int pwmTimer[num_ch]; //The time that the pin is currently in it's state //Don't change
-int timeHigh[num_ch]; //The time that the pin is high
-int timeLow[num_ch];  //and low
-int pciTime;
+//const int pwmPIN[]={A0,A1,A2,A3,A4}; //Array of pins
+//const int num_ch = 5; //Number of pins
+//int prev_pinState[num_ch]; //The previous state of every pin //Don't change
+//int pwmTimer[num_ch]; //The time that the pin is currently in it's state //Don't change
+//int timeHigh[num_ch]; //The time that the pin is high
+//int timeLow[num_ch];  //and low
+//int pciTime;
 
 
 //Radio Settings
 uint8_t buflen = 5;
 uint8_t buf[5]; //This is the array in which the radio input is found.
+
+uint8_t returnBuf[8] = {1,69,2,3,4,5,6,12};
 
 
 /*
@@ -66,36 +72,42 @@ uint8_t buf[5]; //This is the array in which the radio input is found.
 //This function recieves radio input, and puts it into buf array. It also returnes a bool if radio is connected.
 int radioTick = 0; //This variable counts how long ago was last radio revcive
 bool recieveRadio(){
-  Serial.println("RECIEVE");
   radioTick++;
   if (radio.available()) {
-    Serial.println("EFE");
     radioTick=0; //reset
     radio.read(buf, buflen);
   }
-
   if (radioTick>25){ return false;} //Last radio recieve was 5 seconds ago, assume that radio is not connected.
   else{return true;}
 }
 
-ISR(PCINT1_vect){ //Interrupt pin 1, interrupt service routine, caused by a change in pins A0-A5
-  pciTime = micros();  //gets the current time
-  for (int i = 0; i < num_ch; i++){ //loops through all of the pins in A0 to A4, but since we don't know what pin caused the interrupt we have to check all of them.
-      int state = digitalRead(pwmPIN[i]); //Gets the state of the pin, should be either high or low.
-      if(prev_pinState[i] == 0 && state){  //If the pin is high
-        prev_pinState[i] = 1;
-        timeLow[i] = pciTime - pwmTimer[i]; //Calculate the time that was low
-        pwmTimer[i] = pciTime; //Set the time
-        //Serial.println(timeLow[i]);
-      }
-      else if (prev_pinState[i] == 1 && !state){ //If the pin is low
-        prev_pinState[i] = 0;
-        timeHigh[i] = pciTime - pwmTimer[i]; //Calculate the time that was high
-        pwmTimer[i] = pciTime; //Set the time
-        //Serial.println(timeHigh[i]);
-      }
-  }
+void transmitRadio(){
+    //Serial.println("Transmitter");
+    //Serial.println(dataBuffer[4],HEX);
+    radio.stopListening();
+    radio.write(returnBuf, 8);
+    radio.startListening();
 }
+
+
+//ISR(PCINT1_vect){ //Interrupt pin 1, interrupt service routine, caused by a change in pins A0-A5
+//  pciTime = micros();  //gets the current time
+//  for (int i = 0; i < num_ch; i++){ //loops through all of the pins in A0 to A4, but since we don't know what pin caused the interrupt we have to check all of them.
+//      int state = digitalRead(pwmPIN[i]); //Gets the state of the pin, should be either high or low.
+//      if(prev_pinState[i] == 0 && state){  //If the pin is high
+//        prev_pinState[i] = 1;
+//        timeLow[i] = pciTime - pwmTimer[i]; //Calculate the time that was low
+//        pwmTimer[i] = pciTime; //Set the time
+//        //Serial.println(timeLow[i]);
+//      }
+//      else if (prev_pinState[i] == 1 && !state){ //If the pin is low
+//        prev_pinState[i] = 0;
+//        timeHigh[i] = pciTime - pwmTimer[i]; //Calculate the time that was high
+//        pwmTimer[i] = pciTime; //Set the time
+//        //Serial.println(timeHigh[i]);
+//      }
+//  }
+//}
 
 
 /*
@@ -148,9 +160,38 @@ void runWheel(int motorSpeedLeft,int motorSpeedRight){
 }
 
 void operateExternalJoystick(){
-  int verMap = map(timeHigh[1],1000,1800, 0, 127);
-  int horMap = map(timeHigh[1],1000,1800, 0, 127);
-  runWheel(verMap,horMap);
+  int forward = map(timeHigh[1],1068,1920, 0, 127);
+  int side = map(timeHigh[2],1044,1892, 0, 127);
+  Serial.println(forward);
+  Serial.println(side);
+  if (abs(side-63)<15){
+    runMotor(forward,forward);
+  }
+  else{
+    runMotor(side,(-(side-63))+63);
+  }
+}
+
+void runMotor(int motorSpeedLeft,int motorSpeedRight){
+  Serial.println(motorSpeedLeft);
+  Serial.println(motorSpeedRight);
+  motorSpeedLeft = map(motorSpeedLeft, 0, 127, -255, 255);
+  motorSpeedRight = map(motorSpeedRight, 0, 127, -255, 255);
+  Serial.println(motorSpeedLeft);
+  Serial.println(motorSpeedRight);
+  if (motorSpeedLeft>0 and motorSpeedRight>0){
+    Serial.println("FORWARD");
+    forward(1, (motorSpeedLeft+motorSpeedRight)/2);
+  }if (motorSpeedLeft<0 and motorSpeedRight<0){
+    Serial.println("BACKWARD");
+    backward(1, (-motorSpeedLeft+-motorSpeedRight)/2);
+  }if (motorSpeedLeft<0 and motorSpeedRight>0){
+    Serial.println("LEFT");
+    left(1, (-motorSpeedLeft+motorSpeedRight)/2);
+  }if (motorSpeedLeft>0 and motorSpeedRight<0){
+    Serial.println("RIGHT");
+    right(1, (motorSpeedLeft+-motorSpeedRight)/2);
+  }
 }
 
 
@@ -161,20 +202,20 @@ void operateExternalJoystick(){
 */
 
 
-void pciSetup(byte pin){ //this sets up all of the interrupt bits. It is done so that the interrupt will fire when a change in pins A0-A5 is detected
-    *digitalPinToPCMSK(pin) |= bit (digitalPinToPCMSKbit(pin));  // enable pin
-    PCIFR  |= bit (digitalPinToPCICRbit(pin));                   // clear any outstanding interrupt
-    PCICR  |= bit (digitalPinToPCICRbit(pin));                   // enable interrupt for the group
-}
+//void pciSetup(byte pin){ //this sets up all of the interrupt bits. It is done so that the interrupt will fire when a change in pins A0-A5 is detected
+//    *digitalPinToPCMSK(pin) |= bit (digitalPinToPCMSKbit(pin));  // enable pin
+//    PCIFR  |= bit (digitalPinToPCICRbit(pin));                   // clear any outstanding interrupt
+//    PCICR  |= bit (digitalPinToPCICRbit(pin));                   // enable interrupt for the group
+//}
 
-void setupControllerReader(){
-  //Sets pin to input and sets-up the interrupt
-  //Pin interrupt setup
-  for(int i = 0; i < num_ch; i++){  //Loop through each pin
-    pciSetup(pwmPIN[i]);  //Set up interrupts with that pin
-    pinMode(pwmPIN[i],INPUT);  //Set it as an input
-  }
-}
+//void setupControllerReader(){
+//  //Sets pin to input and sets-up the interrupt
+//  //Pin interrupt setup
+//  for(int i = 0; i < num_ch; i++){  //Loop through each pin
+//    pciSetup(pwmPIN[i]);  //Set up interrupts with that pin
+//    pinMode(pwmPIN[i],INPUT);  //Set it as an input
+//  }
+//}
 
 //This calculates duty cycle
 int calculateDutyCycle(int A, int B){
@@ -184,7 +225,8 @@ int calculateDutyCycle(int A, int B){
 //This function sets up all the requirements for the radio
 void setupRadio(){
   radio.begin();
-  radio.openReadingPipe(0, address);
+  radio.openReadingPipe(0, addressRecieve);
+  radio.openWritingPipe(addressTransmit);
   radio.setPALevel(RF24_PA_MIN);
   radio.startListening();
 }
@@ -192,12 +234,12 @@ void setupRadio(){
 //Ensure all motor pins are set to iotupt
 void motorSetup(){
 
-  pinMode(ML1A,OUTPUT) ; pinMode(ML1B,OUTPUT) ; pinMode(ML1S,OUTPUT) ;
-  pinMode(ML2A,OUTPUT) ; pinMode(ML2B,OUTPUT) ; pinMode(ML2S,OUTPUT) ;
-  pinMode(ML3A,OUTPUT) ; pinMode(ML3B,OUTPUT) ; pinMode(ML3S,OUTPUT) ;
-  pinMode(MR1A,OUTPUT) ; pinMode(MR1B,OUTPUT) ; pinMode(MR1S,OUTPUT) ;
-  pinMode(MR2A,OUTPUT) ; pinMode(MR2B,OUTPUT) ; pinMode(MR2S,OUTPUT) ;
-  pinMode(MR3A,OUTPUT) ; pinMode(MR3B,OUTPUT) ; pinMode(MR3S,OUTPUT) ; 
+  //Frontwheels
+  pinMode(22, OUTPUT); pinMode(23, OUTPUT); pinMode(24, OUTPUT); pinMode(26, OUTPUT); pinMode(3, OUTPUT); pinMode(4, OUTPUT);
+  //Middlewheels
+  pinMode(28, OUTPUT); pinMode(30, OUTPUT); pinMode(32, OUTPUT); pinMode(34, OUTPUT); pinMode(5, OUTPUT); pinMode(6, OUTPUT);
+  //Backwheels
+  pinMode(36, OUTPUT); pinMode(38, OUTPUT); pinMode(40, OUTPUT); pinMode(42, OUTPUT); pinMode(7, OUTPUT); pinMode(8, OUTPUT);
 
   buf[0] = 63.5; //Ensure that initial value is stop
   buf[1] = 63.5;
@@ -227,7 +269,8 @@ void setup() {
   pinMode(LED_BUILTIN,OUTPUT);
   setupRadio();
   motorSetup();
-  setupControllerReader();
+  //setupControllerReader();
+  setup_pwmRead();
 }
 
 
@@ -249,20 +292,40 @@ int operationMode = 0;
 int extJoystickControl = 0;
 
 void loop() {
+  Serial.println("New Loop");
   //This loop runs 5 times every second
+  transmitRadio();
   bool isConnectedRadio = recieveRadio(); //Recieve new data from radio input
-  if (!isConnectedRadio){
+  Serial.print("Radio: ");
+  Serial.println(isConnectedRadio);
+  if (isConnectedRadio==0){
     operationMode = 0; //Check to see if radio is connected, and if not set to operation mode 0
-  }else{
+  }if (isConnectedRadio==1){
+    Serial.println("Connection");
     operationMode = buf[4]; //Get operation mode from radio signal sent.
   }
   setLEDPin(operationMode); //Set blinking LED to mark current operation mode
-
+  Serial.println("BUFFER ");
+  Serial.println(buf[0]);
+  Serial.println(buf[1]);
+  Serial.println(buf[2]);
+  Serial.println(buf[3]);
+  Serial.println(buf[4]);
   //Code to get input form joystick
   extJoystickControl = 0; //TEMP TODO
-  
-  //TEMP 
-  operationMode = 1;
+  if (timeHigh[0]<1400){
+    extJoystickControl = 0;
+  }if (timeHigh[0]>=1400){
+    extJoystickControl = 1;
+  }
+//  
+//  //TEMP 
+  //operationMode = 0;
+
+//  Serial.println("Values");
+//  Serial.println(timeHigh[0]);
+//  Serial.println(timeHigh[1]);
+//  Serial.println(timeHigh[2]);
 
   if (extJoystickControl == 0){
     if (operationMode==5){ //Operation of external joystick
@@ -271,14 +334,19 @@ void loop() {
     if (operationMode==7){ //Arduino automatic operation
       Serial.println("NO auto operation");
     }
+    if (operationMode==0){
+      Serial.println("Rover Switched off");
+      stopMoving(1);
+    }
 
     if (operationMode==1 or operationMode==2 or operationMode==3 or operationMode==4 or operationMode==6){ //Motion is calculated from another location
+     Serial.println("Given Command");
      Serial.println(buf[0]);
      Serial.println(buf[1]);
-     //runWheel(buf[0],buf[1]);
-    }
+     runMotor(buf[0],buf[1]);
+    }   
   }if (extJoystickControl == 1){
-    operateExternalJoystick()
+    operateExternalJoystick();
   }
-  delay(200);
+  delay(1);
 }
