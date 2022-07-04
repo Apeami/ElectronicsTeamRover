@@ -1,4 +1,10 @@
-1) LED light Signal four states
-2) Timeout from controller , change of mode.
-3) Read from controller
-4) Put commands in
+Bug/Feature list
+------------
+
+1) Button to disconnect from the relay.
+2) Add multi threading to make recieving the data easier.
+3) Fix peformance issues.
+4) Key to go up
+5) Add comments to code
+6) Fix stopping issues
+7) Solve latency issues
