@@ -1,15 +1,16 @@
 #Import required libraries
+
+import signal
 import serial
 import time
 import sys
 from pynput.keyboard import Key, Listener
-import pygame
+import threading
+from datetime import datetime
 
 #These are the values that can be changed depending on the situation
-port = "/dev/cu.usbmodem14101" #this is the port that is used to access the arduino and will change
 
-INPUT_TYPE = "Keyboard"
-
+#Global constants
 ARREYLEN=5
 
 ANGLEMIN=-180
@@ -19,38 +20,62 @@ SPEEDMIN=-255
 SPEEDMAX=255
 #End
 
-#Global constants
-#Wl, Wr, S1, S2, con
- #This is the array to send over, #ensure default to no movement
-
 
 class Communicator:
 
-    def __init__(self,port):
+    def __init__(self,port,outputAll = False):
         print("Communication Setup")
 
+        signal.signal(signal.SIGINT, self.handler)
+        dateTime=datetime.now().strftime("%m-%d-%Y-%H:%M:%S")
+        self.fileName= "RoverData-"+dateTime+".csv"
+        self.saveFile = open(self.fileName,"w")
+
+        self.outputAll=outputAll
         self.recievedValues = [0,0,0,0,0,0,0,0] #Connection, Speed, angular speed, orientation, posX, posY,posZ , voltage
 
-        self.arrayToSend = [63.5,63.5,0,0,0]
+        self.arrayToSend = [63.5,63.5,0,0,0] #Wl, Wr, S1, S2, con
         self.prevArray = [0,0,0,0,0]
         try:
+            print(port)
             self.ser=serial.Serial(port,9600) #this is the setup of the serial connection
             print("Serial port succesfully connected")
             self.connect = True
             #This gets it all ready to go idk why i need to do this.
             self.setCurrentState(0)
+
         except:
             print("No serial port to be found.")
             self.connect = False
+            return
             #sys.exit(1)
 
-    #Value array
-    def recieveValues(self):
-        for i in range(0,8):
-            line = self.ser.read()
-            line= int.from_bytes(line, "big")
-            self.recievedValues[i]=line
+        #Start threading
+        self.t1 = threading.Thread(target=self.threadRecieve)
+        self.runRecieve=True
+        self.t1.start()
 
+    def handler(self,signum, frame):
+        self.saveFile.close()
+        sys.exit(1)
+
+
+
+    def threadRecieve(self):
+        tickToSave = 0
+        while self.runRecieve==True:
+            for i in range(0,8):
+                line = self.ser.read()
+                line= int.from_bytes(line, "big")
+                self.recievedValues[i]=line
+                self.saveFile.write(str(line)+",")
+                if self.outputAll==True:
+                    print(self.recievedValues)
+            self.saveFile.write("\n")
+
+        self.saveFile.close()
+        self.recievedValues = [0,0,0,0,0,0,0,0]
+        self.ser.close() #it is important to close the communication channel
 
     def setWheel(self,speed, side):
         speed = speed - SPEEDMIN
@@ -74,7 +99,6 @@ class Communicator:
         self.transmitWire()
 
     def setCurrentState(self,state):
-        print(state)
         if state>=0 and state<=7:
             self.arrayToSend[4] =  state
         else:
@@ -105,7 +129,7 @@ class Communicator:
 
     def closeCommunication(self):
         print("End of communication")
-        self.ser.close() #it is important to close the communication channel
+        self.runRecieve=False
 
     def on_press(self,key):
         if key == Key.up:
@@ -134,79 +158,24 @@ class Communicator:
                 on_release=self.on_release) as listener:
                 listener.join()
 
-    def joystick_setup(self):
-        pygame.init()
-        done = False
-        pygame.joystick.init()
-
-        joystick_count = pygame.joystick.get_count()
-        if joystick_count==0:
-            print("NO joystick")
-
-        while not done:
-            for event in pygame.event.get(): # User did something.
-                if event.type == pygame.QUIT: # If user clicked close.
-                    done = True # Flag that we are done so we exit this loop.
 
 
-            joystick = pygame.joystick.Joystick(0)
-            joystick.init()
-            try:
-                jid = joystick.get_instance_id()
-            except AttributeError:
-                # get_instance_id() is an SDL2 method
-                jid = joystick.get_id()
-                print("Joystick {}".format(jid))
-            name = joystick.get_name()
-            print("Joystick name: {}".format(name))
-            try:
-                guid = joystick.get_guid()
-            except AttributeError:
-                # get_guid() is an SDL2 method
-                pass
-            else:
-                print("GUID: {}".format(guid))
-
-            axes = joystick.get_numaxes()
-            print("Number of axes: {}".format(axes))
-
-            for i in range(axes):
-                axis = joystick.get_axis(i)
-                print("Axis {} value: {:>6.3f}".format(i, axis))
-
-            side = joystick.get_axis(0)
-            forward = -joystick.get_axis(1)
-
-
-            buttons = joystick.get_numbuttons()
-            print("Number of buttons: {}".format(buttons))
-
-            for i in range(buttons):
-                button = joystick.get_button(i)
-                print("Button {:>2} value: {}".format(i, button))
-
-            hats = joystick.get_numhats()
-            print("Number of hats: {}".format(hats))
-
-            for i in range(hats):
-                hat = joystick.get_hat(i)
-                print("Hat {} value: {}".format(i, str(hat)))
-        pygame.quit()
-
+    #This function is only run when the program is being runi without GUI and does setup
     def start(self):
         #setupCommunication()
-        self.setCurrentState(1)
-        if INPUT_TYPE=="Keyboard":
+        if self.connect==True:
+            self.setCurrentState(1) #The current state is turned on
             self.keyboard_setup()
-        if INPUT_TYPE=="Joystick":
-            self.joystick_setup()
-        self.closeCommunication()
+            self.closeCommunication() #Ensures that communication is closed at the end
 
+#If the program is run independantly there is no GUI an only keyboard is supported
 if __name__ == "__main__":
-    Communicator("/dev/cu.usbmodem14101").start()
+    if len(sys.argv[1])>=2:
+        Communicator(sys.argv[1],True).start()
 
 
-#Code for testing
+#Code for testing Not used at the moment and might never be used.
+
 # def testFunction():
 #     pass
 #     #test function that can be written to to test the code

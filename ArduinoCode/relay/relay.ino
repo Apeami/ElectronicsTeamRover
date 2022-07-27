@@ -5,7 +5,7 @@
 RF24 radio(7, 8); // CE, CSN
 char dataBuffer[5] = {0,0,0,0,0}; //This temporary storage buffer
 
-char recievedBuffer[8] = {0,0,0,0,0,0,0,0};
+char recievedBuffer[8] = {0,2,3,4,5,6,7,13};
 
 const byte addressTransmit[6] = "00001";
 const byte addressRecieve[6] = "00002";
@@ -86,6 +86,10 @@ void runJoystick(){
 }
 
 void loop(){
+
+  recievedBuffer[1]++;
+
+  
   //First receive from computer and then transmit, 5 times every second.
   recieveWire();
   
@@ -94,12 +98,12 @@ void loop(){
   }
   
   transmitRadio();
-  bool connection = recieveRadio();
-  if (connection==true){
-    recievedBuffer[0]=1;
-  }if (connection==false){
-    recievedBuffer[0]=0;
-  }
+//  bool connection = recieveRadio();
+//  if (connection==true){
+//    recievedBuffer[0]=1;
+//  }if (connection==false){
+//    recievedBuffer[0]=0;
+//  }
   
   counter++;
   if (counter>THRESH){

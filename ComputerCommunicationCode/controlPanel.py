@@ -1,6 +1,7 @@
 import pygame
 import pygame.camera
 from pygame.locals import *
+import sys
 
 import button
 import communicator
@@ -12,7 +13,7 @@ pygame.display.set_caption('Rover Control Panel')
 
 
 class Capture(object):
-    def __init__(self):
+    def __init__(self,port):
 
         #Rover commands
         self.wheelLeft = 0
@@ -30,6 +31,7 @@ class Capture(object):
         self.camera = False
         self.state=False #False = off, True = on
         self.error=True
+        self.port=port
 
         #values
         self.speed=0
@@ -40,17 +42,17 @@ class Capture(object):
         self.posz=0
         self.batvol=0
 
-        #buttons
-        self.modesList = ('Button','Keyboard','JoystickCom','JoystickArd',"JoystickExt","AutomaticCom","AutomaticArd")
-        self.currentCycle = 0
-        self.set_buttons()
-
         #display
         self.scale = 1
         self.size = (640*self.scale,480*self.scale)
         self.camSize = (400*self.scale,230*self.scale)
         # create a display surface. standard pygame stuff
         self.display = pygame.display.set_mode(self.size, 0 )
+
+        #buttons
+        self.modesList = ('Button','Keyboard','JoystickCom','JoystickArd',"JoystickExt","AutomaticCom","AutomaticArd")
+        self.currentCycle = 0
+        self.set_buttons()
 
         #refresh items
         self.refresh_items()
@@ -82,14 +84,13 @@ class Capture(object):
         except:
             self.keyboard=False
         #relay
-        self.communication = communicator.Communicator("/dev/cu.usbmodem14101")
+        self.communication = communicator.Communicator(self.port, outputAll=False)
         if self.communication.connect ==True:
             self.relay = True
         if self.communication.connect ==False:
             self.relay = False
         #Rover
         #no implementation yet
-
 
     def get_camera(self):
         if self.camera==True:
@@ -183,11 +184,13 @@ class Capture(object):
         self.btnOn = button.Button("On",(330, 355),(50,50), 15, (0,255,0))
         self.btnHelp = button.Button("Help",(330, 415),(50,50), 15, (69,255,123))
         self.btnRefresh = button.Button("Refresh",(260, 295),(50,50), 15, (69,255,123))
+        self.btnDisconnect = button.Button("Disconnect",(260, 415),(50,50), 10, (255,69,69))
 
         self.btnModeChoose = button.Button(self.modesList[self.currentCycle] ,(450, 370),(150,35), 15, (0,0,0))
         self.btnModeSelect = button.Button("Change Mode",(450, 420),(150,35), 15, (0,0,255))
 
     def run_buttons(self,event):
+
         self.btnStop.show(self.display)
         self.btnLeft.show(self.display)
         self.btnRight.show(self.display)
@@ -203,6 +206,9 @@ class Capture(object):
         self.btnOn.show(self.display)
         self.btnHelp.show(self.display)
         self.btnRefresh.show(self.display)
+        self.btnDisconnect.show(self.display)
+
+        self.btnModeSelect.show(self.display)
 
         if self.btnModeChoose.click(event) == True:
             self.currentCycle+=1
@@ -224,12 +230,16 @@ class Capture(object):
         if self.btnRefresh.click(event) == True:
             self.refresh_items()
 
+        if self.btnDisconnect.click(event) == True:
+            self.communication.closeCommunication()
+            self.relay=False
+            self.rover=False
+
         if self.btnStop.click(event) == True:
             print("Pressed")
 
         self.btnModeChoose.change_text(self.modesList[self.currentCycle],(0,0,0))
         self.btnModeChoose.show(self.display)
-        self.btnModeSelect.show(self.display)
 
     def manage_keyboard(self):
         keys=pygame.key.get_pressed()
@@ -237,16 +247,17 @@ class Capture(object):
             if keys[K_LEFT] or keys[K_a]:
                 self.communication.setWheel(255, "Left")
                 self.communication.setWheel(-255, "Right")
-            if keys[K_RIGHT] or keys[K_d]:
+            elif keys[K_RIGHT] or keys[K_d]:
                 self.communication.setWheel(-255, "Left")
                 self.communication.setWheel(255, "Right")
-            if keys[K_DOWN] or keys[K_s]:
+            elif keys[K_DOWN] or keys[K_s]:
                 self.communication.setWheel(-255, "Left")
                 self.communication.setWheel(-255, "Right")
-            if keys[K_UP] or keys[K_w]:
+            elif keys[K_UP] or keys[K_w]:
                 self.communication.setWheel(255, "Left")
                 self.communication.setWheel(255, "Right")
-            if keys[K_SPACE]:
+            #if keys[K_SPACE]:
+            else:
                 self.communication.setWheel(0, "Left")
                 self.communication.setWheel(0, "Right")
 
@@ -290,7 +301,7 @@ class Capture(object):
             self.communication.setCurrentState(0)
 
     def set_recieved_values(self):
-        if self.communication.recievedValues[0] == 1:
+        if self.communication.recievedValues[0] >= 1:
             self.rover = True
         if self.communication.recievedValues[0] == 0:
             self.rover = False
@@ -308,15 +319,17 @@ class Capture(object):
         going = True
         while going:
 
+
             events = pygame.event.get()
 
-            self.communication.recieveValues()
-            self.set_recieved_values()
             self.get_background()
             self.get_text()
+
+            self.set_recieved_values()
             self.set_values()
             self.get_camera()
             self.run_buttons(events)
+
 
             if self.relay == True:
                 self.manage_mode()
@@ -328,11 +341,15 @@ class Capture(object):
             for e in events:
                 if e.type == QUIT or (e.type == KEYDOWN and e.key == K_ESCAPE):
                     # close the camera safely
+                    self.communication.closeCommunication()
                     self.cam.stop()
                     going = False
             pygame.display.flip()
 
         dt = clock.tick(5)
 
-captureObj =  Capture()
-captureObj.main()
+#Start program
+if __name__ == "__main__":
+    if len(sys.argv[1])>=2:
+        captureObj = Capture(sys.argv[1])
+        captureObj.main()
