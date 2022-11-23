@@ -10,3 +10,4 @@ Electronics files, Arduino code, Computer Communication code
 - Chiew
 - Amirutha 
 - Vatsal
+- Minseok
